@@ -1,0 +1,2 @@
+# Override with your Longhorn node names, disk paths, and tags.
+nodes: []

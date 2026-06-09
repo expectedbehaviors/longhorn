@@ -1,0 +1,113 @@
+{{- $longhorn := .Values.longhorn }}
+{{- range .Values.volumes }}
+{{- $rwx := eq (.accessMode| default "ReadWriteOnce") "ReadWriteMany" }}
+{{- $nodeSelector := .nodeSelector | default list }}
+{{- $storageClassName := .storageClass | quote }}
+{{- $RELEASE_VERSION := "v1.9.0" }}
+{{- $volumeName := default .name .volumeName }}
+---
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - longhorn.io
+  labels:
+    backup-target: {{ default "default" .backupTarget }}
+    longhornvolume: {{ default .name .volumeName}}
+    recurring-job-group.longhorn.io/default: {{ default "enabled" .defaultRecurringJobGroup }}
+    setting.longhorn.io/remove-snapshots-during-filesystem-trim: {{ default "ignored" .removeSnapshotsDuringFilesystemTrim }}
+    setting.longhorn.io/snapshot-data-integrity: {{ default "ignored" .snapshotDataIntegrity }}
+  name: {{ $volumeName }}
+  namespace: {{ default "longhorn-system" .longhornNamespace }}
+spec:
+  Standby: {{ default false .standby }}
+  accessMode: {{ ternary "rwx" "rwo" $rwx }}
+  backingImage: {{ default "" .backingImage | quote }}
+  backupCompressionMethod: {{ default "lz4" .backupCompressionMethod | quote }}
+  backupTargetName: {{ default "default" .backupTarget | quote }}
+  dataEngine: {{ default "v2" .dataEngine | quote }}
+  dataLocality: {{ default "disabled" .dataLocality | quote }}
+  dataSource: {{ default "" .dataSource | quote }}
+  diskSelector: {{ .diskSelector | toJson }}
+  encrypted: {{ default false .encrypted }}
+  freezeFilesystemForSnapshot: {{ default "ignored" .freezeFilesystemForSnapshot | quote }}
+  fromBackup: {{ default "" .fromBackup | quote }}
+  frontend: {{ default "blockdev" .frontend | quote }}
+  image: {{ default (printf "longhornio/longhorn-instance-manager:%s" $RELEASE_VERSION) .image | quote }}
+  lastAttachedBy: {{ default "" .lastAttachedBy | quote }}
+  migratable: {{ default false .migratable }}
+  migrationNodeID: {{ default "" .migrationNodeID | quote }}
+  nodeID: {{ default "" .nodeID | quote }}
+  nodeSelector: {{ $nodeSelector | toJson }}
+  numberOfReplicas: {{ default 2 .numberOfReplicas }}
+  replicaAutoBalance: {{ ternary "ignored" (default "best-effort" .replicaAutoBalance) (eq (default "v2" .dataEngine) "v2") }}
+  replicaDiskSoftAntiAffinity: {{ default "ignored" .replicaDiskSoftAntiAffinity | quote }}
+  replicaSoftAntiAffinity: {{ default "ignored" .replicaSoftAntiAffinity | quote }}
+  replicaZoneSoftAntiAffinity: {{ default "ignored" .replicaZoneSoftAntiAffinity | quote }}
+  restoreVolumeRecurringJob: {{ default "ignored" .restoreVolumeRecurringJob | quote }}
+  revisionCounterDisabled: {{ .revisionCounterDisabled | default true }}
+  size: {{ (include "sizeInBytes" .size|quote|toString) }}
+  snapshotDataIntegrity: {{ default "disabled" .snapshotDataIntegrity | quote }}
+  snapshotMaxCount: {{ default 2 .snapshotMaxCount }}
+  snapshotMaxSize: {{ default "0" .snapshotMaxSize | quote }}
+  staleReplicaTimeout: {{ default 20 .staleReplicaTimeout }}
+  unmapMarkSnapChainRemoved: {{ default "disabled" .unmapMarkSnapChainRemoved | quote }}
+{{- $volume := . }}
+{{- range .namespaces }}
+{{- $pvName := default (printf "%s-%s" . (default $volume.name $volume.volumeName)) $volume.pvNameOverride }}
+{{- $pvcName := default $volume.name $volume.volumeName }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+  - kubernetes.io/pv-protection
+  name: {{ $pvName }}
+spec:
+  accessModes:
+  - {{ $volume.accessMode }}
+  capacity:
+    storage: {{ $volume.size }}
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: {{ $pvcName }}
+    namespace: {{ . }}
+  csi:
+    driver: {{ default "driver.longhorn.io" $volume.csiDriver | quote }}
+    fsType: {{ default "ext4" $volume.csifsType | quote }}
+    volumeAttributes:
+      diskSelector: {{ join "," $volume.diskSelector | quote }}
+      migratable: {{ default "false" $volume.migratable | quote }}
+      nodeSelector: {{ join "," $nodeSelector | quote }}
+      numberOfReplicas: {{ default "2" $volume.numberOfReplicas | quote }}
+      staleReplicaTimeout: {{ default "20" $volume.staleReplicaTimeout | quote }}
+    volumeHandle: {{ $volumeName }}
+  persistentVolumeReclaimPolicy: {{ default "Retain" $volume.persistentVolumeReclaimPolicy }}
+  storageClassName: {{ $storageClassName }}
+  volumeMode: {{ default "Filesystem" $volume.volumeMode | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: {{ $pvcName }}
+  namespace: {{ . }}
+spec:
+  accessModes:
+  - {{ $volume.accessMode }}
+  resources:
+    requests:
+      storage: {{ $volume.size }}
+  storageClassName: {{ $storageClassName }}
+  volumeMode: {{ default "Filesystem" $volume.volumeMode | quote }}
+  volumeName: {{ $pvName }}
+{{- end }}
+{{- end }}

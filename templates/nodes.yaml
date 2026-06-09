@@ -1,0 +1,26 @@
+{{- range $node := .Values.nodes }}
+---
+apiVersion: longhorn.io/v1beta2
+kind: Node
+metadata:
+    name: {{ $node.name }}
+    annotations:
+      argocd.argoproj.io/sync-wave: "1"
+spec:
+    allowScheduling: {{ default true $node.allowScheduling }}
+    disks:
+        {{- range $disk := $node.disks }}
+        {{ $disk.name }}:
+            allowScheduling: {{ $disk.allowScheduling }}
+            diskDriver: {{ default "" $disk.diskDriver | quote }}
+            diskType: {{ default "filesystem" $disk.diskType | quote }}
+            evictionRequested: {{ default false $disk.evictionRequested }}
+            path: {{ $disk.path }}
+            storageReserved: {{ default 0 $disk.storageReserved }}
+            tags: {{ $disk.tags | toJson }}
+        {{- end }}
+    evictionRequested: {{ default false $node.evictionRequested }}
+    instanceManagerCPURequest: {{ default 0 $node.instanceManagerCPURequest }}
+    name: {{ $node.name }}
+    tags: {{ $node.tags | toJson }}
+{{- end }}
