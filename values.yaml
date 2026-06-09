@@ -1,0 +1,48 @@
+# Baseline Longhorn wrapper. Override ingress, backup target, nodes, storageClasses, volumes, and onepassworditem in your values.
+# Merge value files: values.yaml, values/storageClasses.yaml, values/nodes.yaml, values/volumes.yaml
+
+longhorn:
+  preUpgradeChecker:
+    jobEnabled: false
+    upgradeVersionCheck: true
+
+  persistence:
+    defaultClass: false
+    defaultFsType: ext4
+    defaultClassReplicaCount: 3
+    defaultDataLocality: best-effort
+    reclaimPolicy: Retain
+    dataEngine: v2
+
+  defaultSettings:
+    defaultReplicaCount: "3"
+    defaultDataLocality: best-effort
+    replicaSoftAntiAffinity: true
+    replicaAutoBalance: best-effort
+    storageOverProvisioningPercentage: "100"
+    storageMinimalAvailablePercentage: "25"
+    allowRecurringJobWhileVolumeDetached: true
+    autoSalvage: true
+    deletingConfirmationFlag: true
+
+  defaultBackupStore:
+    backupTarget: ""
+    backupTargetCredentialSecret: ""
+    pollInterval: ~
+
+  ingress:
+    enabled: false
+    ingressClassName: nginx
+    host: longhorn.example.com
+    tls: false
+    path: /
+    pathType: ImplementationSpecific
+    annotations: {}
+
+  annotations:
+    configmap.reloader.stakater.com/reload: longhorn-default-setting
+
+onepassworditem:
+  enabled: false
+  defaultVault: Kubernetes
+  items: []

@@ -1,0 +1,18 @@
+storageClasses:
+  - &storageClass
+    name: ssd
+    default: false
+    diskSelector: ssd
+    freezeFSForSnapshot: true
+    numberOfReplicas: 3
+    replicaAutoBalance: best-effort
+  - <<: *storageClass
+    name: nvme
+    diskSelector: ssd,nvme
+  - <<: *storageClass
+    name: ssd-nvme
+    default: true
+    diskSelector: ssd,nvme
+  - <<: *storageClass
+    name: hdd
+    diskSelector: hdd
